@@ -10,6 +10,9 @@ yarn.lock
 .env.local
 .env.*.local
 
+# Python virtual environments
+.venv/
+
 # IDE
 .vscode/
 .idea/
@@ -39,3 +42,7 @@ coverage/
 .cache/
 temp/
 tmp/
+__pycache__/
+*.pyc
+
+
