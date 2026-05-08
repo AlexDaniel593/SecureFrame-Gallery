@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import time
@@ -24,6 +25,8 @@ from app.services.exif_stripper import strip_exif
 from app.services.magic_validator import validate_image
 from app.services.sandbox import SecureSandbox
 from app.services.stego_detector import analyze_image
+
+logger = logging.getLogger("app.analysis")
 
 router = APIRouter()
 
@@ -158,8 +161,15 @@ async def analyze_image_endpoint(request: Request, file: UploadFile = File(...))
     except TimeoutError:
         audit_log("analysis_timeout", {"request_id": request_id})
         raise HTTPException(status_code=504, detail="Processing timeout")
-    except Exception:
-        audit_log("analysis_error", {"request_id": request_id})
+    except Exception as exc:
+        logger.exception("analysis_failed", extra={"request_id": request_id})
+        audit_log(
+            "analysis_error",
+            {
+                "request_id": request_id,
+                "error": exc.__class__.__name__,
+            },
+        )
         raise HTTPException(status_code=500, detail="Internal error")
     finally:
         if sandbox_path:

@@ -25,6 +25,17 @@ def validate_image(file_path: str) -> Dict[str, object]:
     mime_type = magic.from_file(file_path, mime=True)
     description = magic.from_file(file_path, mime=False)
 
+    if mime_type == "application/octet-stream":
+        try:
+            with Image.open(file_path) as img:
+                mime_type = img.format.lower()
+                if mime_type == "jpeg":
+                    mime_type = "image/jpeg"
+                else:
+                    mime_type = f"image/{mime_type}"
+        except Exception:
+            pass
+
     if mime_type not in settings.ALLOWED_MIME_TYPES:
         return {
             "valid": False,
