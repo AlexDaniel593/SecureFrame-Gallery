@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from datetime import datetime
 from typing import Dict, Tuple
 
@@ -15,12 +14,7 @@ MAX_SAMPLE_DIM = 2048
 
 
 def _run_with_timeout(func, timeout_seconds: int, *args):
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(func, *args)
-        try:
-            return future.result(timeout=timeout_seconds)
-        except FuturesTimeoutError as exc:
-            raise TimeoutError("Analysis timed out") from exc
+    return func(*args)
 
 
 def analyze_lsb(image: Image.Image) -> float:

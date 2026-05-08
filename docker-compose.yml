@@ -3,10 +3,12 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: secureframe
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: SecureFrame2024!
       POSTGRES_DB: secureframe_db
     volumes:
       - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     networks:
       - internal
       - public
@@ -35,8 +37,12 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
     volumes:
       - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
     networks:
       - internal
+      - public
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
       interval: 30s
@@ -61,7 +67,7 @@ services:
       - "8000:8000"
     read_only: true
     tmpfs:
-      - /tmp/sandbox:rw,noexec,nosuid,size=256m
+      - /tmp/sandbox:rw,noexec,nosuid,size=256m,uid=100,gid=101,mode=0700
     security_opt:
       - no-new-privileges:true
     cap_drop:
