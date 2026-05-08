@@ -1,0 +1,6 @@
+-- CreateEnum
+CREATE TYPE "Privacy" AS ENUM ('PUBLIC', 'PRIVATE');
+
+-- AlterTable
+ALTER TABLE "Album" ADD COLUMN     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "privacy" "Privacy" NOT NULL DEFAULT 'PRIVATE';
