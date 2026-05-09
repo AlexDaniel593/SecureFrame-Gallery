@@ -70,7 +70,8 @@ def check_dependencies() -> Dict[str, str]:
             aws_secret_access_key=settings.MINIO_SECRET_KEY,
             region_name="us-east-1",
         )
-        s3_client.head_bucket(Bucket=settings.MINIO_BUCKET_TEMP)
+        s3_client.head_bucket(Bucket=settings.MINIO_BUCKET_CLEAN)
+        s3_client.head_bucket(Bucket=settings.MINIO_BUCKET_QUARANTINE)
         dependencies["minio"] = "ok"
     except Exception as exc:
         dependencies["minio"] = f"error: {exc.__class__.__name__}"
@@ -97,6 +98,7 @@ async def analyze_image_endpoint(request: Request, file: UploadFile = File(...))
     start_time = time.monotonic()
     sandbox = SecureSandbox()
     sandbox_path = ""
+    s3_client = None
 
     try:
         sanitized_name = sanitize_filename(file.filename or "uploaded_file")
@@ -131,6 +133,37 @@ async def analyze_image_endpoint(request: Request, file: UploadFile = File(...))
         }
         details.update(stego_result.get("details", {}))
 
+        verdict = stego_result.get("verdict", "ERROR")
+
+        minio_path = None
+        bucket = None
+
+        if verdict in ["CLEAN", "SUSPICIOUS", "MALICIOUS"]:
+            bucket = (
+                settings.MINIO_BUCKET_CLEAN
+                if verdict == "CLEAN"
+                else settings.MINIO_BUCKET_QUARANTINE
+            )
+            minio_key = f"{request_id}/{sanitized_name}"
+
+            s3_client = boto3.client(
+                "s3",
+                endpoint_url=_minio_endpoint_url(),
+                aws_access_key_id=settings.MINIO_ACCESS_KEY,
+                aws_secret_access_key=settings.MINIO_SECRET_KEY,
+                region_name="us-east-1",
+            )
+
+            with open(temp_path, "rb") as f:
+                s3_client.put_object(
+                    Bucket=bucket,
+                    Key=minio_key,
+                    Body=f.read(),
+                    ContentType=magic_info.get("mime_type", "application/octet-stream"),
+                )
+
+            minio_path = minio_key
+
         response = AnalysisResult(
             filename=sanitized_name,
             request_id=request_id,
@@ -138,10 +171,12 @@ async def analyze_image_endpoint(request: Request, file: UploadFile = File(...))
             exif_stripped=True,
             stego_score=stego_result.get("stego_score", 0.0),
             confidence=stego_result.get("confidence", 0.0),
-            verdict=stego_result.get("verdict", "ERROR"),
+            verdict=verdict,
             details=details,
             analyzed_at=datetime.utcnow(),
             processing_time_ms=processing_time_ms,
+            minio_path=minio_path,
+            bucket=bucket,
         )
 
         audit_log(
@@ -151,6 +186,7 @@ async def analyze_image_endpoint(request: Request, file: UploadFile = File(...))
                 "filename": sanitized_name,
                 "verdict": response.verdict,
                 "processing_time_ms": processing_time_ms,
+                "bucket": bucket,
             },
         )
 

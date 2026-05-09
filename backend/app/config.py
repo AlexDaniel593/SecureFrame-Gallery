@@ -30,7 +30,6 @@ class Settings(BaseModel):
     MINIO_ENDPOINT: str
     MINIO_ACCESS_KEY: str
     MINIO_SECRET_KEY: str
-    MINIO_BUCKET_TEMP: str
     MINIO_BUCKET_CLEAN: str
     MINIO_BUCKET_QUARANTINE: str
     REDIS_URL: str
