@@ -8,7 +8,7 @@ from typing import Dict
 
 import aiofiles
 import boto3
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from redis import Redis
 
 from app.config import settings
@@ -21,6 +21,7 @@ from app.security import (
     validate_file_size,
     verify_image_not_executable,
 )
+from app.auth import get_current_user
 from app.services.exif_stripper import strip_exif
 from app.services.magic_validator import validate_image
 from app.services.sandbox import SecureSandbox
@@ -84,6 +85,7 @@ def check_dependencies() -> Dict[str, str]:
     response_model=AnalysisResult,
     responses={
         400: {"model": ErrorResponse},
+        401: {"model": ErrorResponse},
         413: {"model": ErrorResponse},
         415: {"model": ErrorResponse},
         429: {"model": ErrorResponse},
@@ -91,7 +93,11 @@ def check_dependencies() -> Dict[str, str]:
     },
 )
 @limiter.limit("10/minute")
-async def analyze_image_endpoint(request: Request, file: UploadFile = File(...)) -> AnalysisResult:
+async def analyze_image_endpoint(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: Dict[str, object] = Depends(get_current_user),
+) -> AnalysisResult:
     sys.setrecursionlimit(min(1000, sys.getrecursionlimit()))
 
     request_id = str(uuid.uuid4())
@@ -102,7 +108,8 @@ async def analyze_image_endpoint(request: Request, file: UploadFile = File(...))
 
     try:
         sanitized_name = sanitize_filename(file.filename or "uploaded_file")
-        audit_log("analysis_started", {"request_id": request_id, "filename": sanitized_name})
+        user_id = current_user.get("sub") or current_user.get("id", "unknown")
+        audit_log("analysis_started", {"request_id": request_id, "filename": sanitized_name, "user_id": user_id})
 
         sandbox_path = sandbox.create_sandbox_directory()
         temp_filename = generate_secure_temp_filename(sanitized_name)
@@ -197,6 +204,12 @@ async def analyze_image_endpoint(request: Request, file: UploadFile = File(...))
     except TimeoutError:
         audit_log("analysis_timeout", {"request_id": request_id})
         raise HTTPException(status_code=504, detail="Processing timeout")
+    except MemoryError:
+        audit_log("analysis_error", {"request_id": request_id, "error": "MemoryError"})
+        raise HTTPException(
+            status_code=413,
+            detail="La imagen requiere demasiada memoria para procesarse",
+        )
     except Exception as exc:
         logger.exception("analysis_failed", extra={"request_id": request_id})
         audit_log(

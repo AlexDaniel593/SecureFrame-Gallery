@@ -49,8 +49,10 @@ class Settings(BaseModel):
     RATE_LIMIT_ALLOWLIST: List[str] = Field(default_factory=list)
     RATE_LIMIT_BLOCKLIST: List[str] = Field(default_factory=list)
 
-    SANDBOX_MAX_MEMORY_MB: int = Field(default=512, ge=64, le=4096)
+    SANDBOX_MAX_MEMORY_MB: int = Field(default=768, ge=64, le=4096)
     SANDBOX_TIMEOUT_SECONDS: int = Field(default=30, ge=5, le=300)
+
+    AUTH_SECRET: str = Field(min_length=32)
 
     @field_validator(
         "CORS_ORIGINS",

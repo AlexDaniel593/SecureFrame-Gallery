@@ -30,12 +30,16 @@ def strip_exif(input_path: str) -> str:
             had_gps = 34853 in exif
             had_thumbnail = "thumbnail" in image.info
 
+            original_format = image.format or "PNG"
+
             if image.mode not in ("RGB", "RGBA"):
                 image = image.convert("RGB")
 
-            clean_image = Image.new(image.mode, image.size)
-            clean_image.putdata(list(image.getdata()))
-            clean_image.save(temp_path, format=image.format)
+            save_kwargs = {}
+            if original_format in {"JPEG", "WEBP"}:
+                save_kwargs["exif"] = b""
+
+            image.save(temp_path, format=original_format, **save_kwargs)
 
         with Image.open(temp_path) as verified_image:
             verified_image.verify()

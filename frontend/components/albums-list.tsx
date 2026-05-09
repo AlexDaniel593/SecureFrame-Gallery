@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 type AlbumStatus = "PENDING" | "APPROVED" | "REJECTED";
 type AlbumPrivacy = "PUBLIC" | "PRIVATE";
@@ -99,6 +101,11 @@ export function AlbumsList({ initialAlbums }: AlbumsListProps) {
                 <p className="text-sm text-muted-foreground mb-2">
                   {album.description || "Sin descripción"}
                 </p>
+                <div className="mb-3">
+                  <Link href={`/dashboard/albums/${album.id}/upload`}>
+                    <Button size="sm">Subir imagenes</Button>
+                  </Link>
+                </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>{privacyLabels[album.privacy]}</span>
                   <span>
