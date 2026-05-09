@@ -116,7 +116,16 @@ def entropy_analysis(image: Image.Image) -> float:
 
 def analyze_image(file_path: str, timeout_seconds: int = 10) -> Dict[str, object]:
     with Image.open(file_path) as image:
-        image = image.convert("RGB")
+        if image.width * image.height > MAX_SAMPLE_PIXELS:
+            # Reduce memory usage by downsizing before conversions.
+            try:
+                image.draft("RGB", (MAX_SAMPLE_DIM, MAX_SAMPLE_DIM))
+            except Exception:
+                pass
+            image.thumbnail((MAX_SAMPLE_DIM, MAX_SAMPLE_DIM))
+
+        if image.mode != "RGB":
+            image = image.convert("RGB")
 
         lsb_score = _run_with_timeout(analyze_lsb, timeout_seconds, image)
         hist_score = _run_with_timeout(analyze_histogram, timeout_seconds, image)

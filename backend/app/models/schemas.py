@@ -22,6 +22,8 @@ class AnalysisResult(BaseModel):
     details: Dict[str, object]
     analyzed_at: datetime
     processing_time_ms: int
+    minio_path: str | None = None
+    bucket: str | None = None
 
 
 class HealthResponse(BaseModel):

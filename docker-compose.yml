@@ -1,10 +1,12 @@
 services:
   postgres:
     image: postgres:16-alpine
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: secureframe
-      POSTGRES_PASSWORD: SecureFrame2024!
-      POSTGRES_DB: secureframe_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -13,7 +15,7 @@ services:
       - internal
       - public
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U secureframe"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -80,10 +82,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.50"
-          memory: 512M
-    mem_limit: 512m
-    cpus: "0.50"
+          cpus: "1"
+          memory: 1g
+    mem_limit: 1g
+    cpus: "1"
 
 volumes:
   pgdata:

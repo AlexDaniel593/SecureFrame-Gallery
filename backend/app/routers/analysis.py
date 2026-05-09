@@ -8,7 +8,7 @@ from typing import Dict
 
 import aiofiles
 import boto3
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from redis import Redis
 
 from app.config import settings
@@ -21,6 +21,7 @@ from app.security import (
     validate_file_size,
     verify_image_not_executable,
 )
+from app.auth import get_current_user
 from app.services.exif_stripper import strip_exif
 from app.services.magic_validator import validate_image
 from app.services.sandbox import SecureSandbox
@@ -70,7 +71,8 @@ def check_dependencies() -> Dict[str, str]:
             aws_secret_access_key=settings.MINIO_SECRET_KEY,
             region_name="us-east-1",
         )
-        s3_client.head_bucket(Bucket=settings.MINIO_BUCKET_TEMP)
+        s3_client.head_bucket(Bucket=settings.MINIO_BUCKET_CLEAN)
+        s3_client.head_bucket(Bucket=settings.MINIO_BUCKET_QUARANTINE)
         dependencies["minio"] = "ok"
     except Exception as exc:
         dependencies["minio"] = f"error: {exc.__class__.__name__}"
@@ -83,6 +85,7 @@ def check_dependencies() -> Dict[str, str]:
     response_model=AnalysisResult,
     responses={
         400: {"model": ErrorResponse},
+        401: {"model": ErrorResponse},
         413: {"model": ErrorResponse},
         415: {"model": ErrorResponse},
         429: {"model": ErrorResponse},
@@ -90,17 +93,23 @@ def check_dependencies() -> Dict[str, str]:
     },
 )
 @limiter.limit("10/minute")
-async def analyze_image_endpoint(request: Request, file: UploadFile = File(...)) -> AnalysisResult:
+async def analyze_image_endpoint(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: Dict[str, object] = Depends(get_current_user),
+) -> AnalysisResult:
     sys.setrecursionlimit(min(1000, sys.getrecursionlimit()))
 
     request_id = str(uuid.uuid4())
     start_time = time.monotonic()
     sandbox = SecureSandbox()
     sandbox_path = ""
+    s3_client = None
 
     try:
         sanitized_name = sanitize_filename(file.filename or "uploaded_file")
-        audit_log("analysis_started", {"request_id": request_id, "filename": sanitized_name})
+        user_id = current_user.get("sub") or current_user.get("id", "unknown")
+        audit_log("analysis_started", {"request_id": request_id, "filename": sanitized_name, "user_id": user_id})
 
         sandbox_path = sandbox.create_sandbox_directory()
         temp_filename = generate_secure_temp_filename(sanitized_name)
@@ -131,6 +140,37 @@ async def analyze_image_endpoint(request: Request, file: UploadFile = File(...))
         }
         details.update(stego_result.get("details", {}))
 
+        verdict = stego_result.get("verdict", "ERROR")
+
+        minio_path = None
+        bucket = None
+
+        if verdict in ["CLEAN", "SUSPICIOUS", "MALICIOUS"]:
+            bucket = (
+                settings.MINIO_BUCKET_CLEAN
+                if verdict == "CLEAN"
+                else settings.MINIO_BUCKET_QUARANTINE
+            )
+            minio_key = f"{request_id}/{sanitized_name}"
+
+            s3_client = boto3.client(
+                "s3",
+                endpoint_url=_minio_endpoint_url(),
+                aws_access_key_id=settings.MINIO_ACCESS_KEY,
+                aws_secret_access_key=settings.MINIO_SECRET_KEY,
+                region_name="us-east-1",
+            )
+
+            with open(temp_path, "rb") as f:
+                s3_client.put_object(
+                    Bucket=bucket,
+                    Key=minio_key,
+                    Body=f.read(),
+                    ContentType=magic_info.get("mime_type", "application/octet-stream"),
+                )
+
+            minio_path = minio_key
+
         response = AnalysisResult(
             filename=sanitized_name,
             request_id=request_id,
@@ -138,10 +178,12 @@ async def analyze_image_endpoint(request: Request, file: UploadFile = File(...))
             exif_stripped=True,
             stego_score=stego_result.get("stego_score", 0.0),
             confidence=stego_result.get("confidence", 0.0),
-            verdict=stego_result.get("verdict", "ERROR"),
+            verdict=verdict,
             details=details,
             analyzed_at=datetime.utcnow(),
             processing_time_ms=processing_time_ms,
+            minio_path=minio_path,
+            bucket=bucket,
         )
 
         audit_log(
@@ -151,6 +193,7 @@ async def analyze_image_endpoint(request: Request, file: UploadFile = File(...))
                 "filename": sanitized_name,
                 "verdict": response.verdict,
                 "processing_time_ms": processing_time_ms,
+                "bucket": bucket,
             },
         )
 
@@ -161,6 +204,12 @@ async def analyze_image_endpoint(request: Request, file: UploadFile = File(...))
     except TimeoutError:
         audit_log("analysis_timeout", {"request_id": request_id})
         raise HTTPException(status_code=504, detail="Processing timeout")
+    except MemoryError:
+        audit_log("analysis_error", {"request_id": request_id, "error": "MemoryError"})
+        raise HTTPException(
+            status_code=413,
+            detail="La imagen requiere demasiada memoria para procesarse",
+        )
     except Exception as exc:
         logger.exception("analysis_failed", extra={"request_id": request_id})
         audit_log(
