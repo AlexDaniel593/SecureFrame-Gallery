@@ -3,35 +3,27 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { S3Client, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { SignJWT } from "jose";
 
-const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || "http://localhost:9000";
-const MINIO_ACCESS_KEY = process.env.MINIO_ACCESS_KEY || "";
-const MINIO_SECRET_KEY = process.env.MINIO_SECRET_KEY || "";
-const MINIO_BUCKET_QUARANTINE = process.env.MINIO_BUCKET_QUARANTINE || "quarantine";
-const MINIO_BUCKET_CLEAN = process.env.MINIO_BUCKET_CLEAN || "clean-images";
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
+const AUTH_SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || "");
 
-function getEndpointUrl(): string {
-  if (MINIO_ENDPOINT.startsWith("http://") || MINIO_ENDPOINT.startsWith("https://")) {
-    return MINIO_ENDPOINT;
-  }
-  return `http://${MINIO_ENDPOINT}`;
+async function getBackendToken(session: any) {
+  return await new SignJWT({
+    sub: session.user.id,
+    role: session.user.role,
+    email: session.user.email,
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("1m")
+    .sign(AUTH_SECRET);
 }
-
-const s3Client = new S3Client({
-  endpoint: getEndpointUrl(),
-  region: "us-east-1",
-  credentials: {
-    accessKeyId: MINIO_ACCESS_KEY,
-    secretAccessKey: MINIO_SECRET_KEY,
-  },
-  forcePathStyle: true,
-});
 
 /**
  * Aprueba una imagen en cuarentena.
- * El supervisor ignora la alerta y la imagen se marca como APPROVED.
- * La imagen se mueve físicamente del bucket de cuarentena al bucket limpio.
+ * Informa al backend de Python para que mueva el archivo a "limpias"
+ * y luego actualiza el registro en la base de datos a APPROVED.
  */
 export async function approveQuarantinedImage(formData: FormData) {
   const session = await auth();
@@ -64,22 +56,21 @@ export async function approveQuarantinedImage(formData: FormData) {
       return { error: "La imagen no está en cuarentena" };
     }
 
-    // Copiar la imagen al bucket de imágenes limpias
-    await s3Client.send(
-      new CopyObjectCommand({
-        Bucket: MINIO_BUCKET_CLEAN,
-        CopySource: `${MINIO_BUCKET_QUARANTINE}/${image.minioPath}`,
-        Key: image.minioPath,
-      })
-    );
+    const token = await getBackendToken(session);
 
-    // Eliminar la imagen original del bucket de cuarentena
-    await s3Client.send(
-      new DeleteObjectCommand({
-        Bucket: MINIO_BUCKET_QUARANTINE,
-        Key: image.minioPath,
-      })
-    );
+    // Pedirle al backend de Python que apruebe y mueva la imagen en MinIO
+    const res = await fetch(`${BACKEND_URL}/api/v1/quarantine/approve`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ minio_path: image.minioPath }),
+    });
+
+    if (!res.ok) {
+      throw new Error("El backend falló al mover la imagen en MinIO");
+    }
 
     await prisma.image.update({
       where: { id: imageId },
@@ -95,8 +86,8 @@ export async function approveQuarantinedImage(formData: FormData) {
 
 /**
  * Rechaza y elimina una imagen en cuarentena.
- * El supervisor confirma la alerta, la imagen se elimina físicamente de MinIO
- * y su registro se elimina de la base de datos.
+ * Informa al backend de Python para eliminar físicamente de MinIO
+ * y luego elimina su registro de la base de datos.
  */
 export async function rejectQuarantinedImage(formData: FormData) {
   const session = await auth();
@@ -129,13 +120,21 @@ export async function rejectQuarantinedImage(formData: FormData) {
       return { error: "La imagen no está en cuarentena" };
     }
 
-    // Eliminar la imagen físicamente del bucket de cuarentena
-    await s3Client.send(
-      new DeleteObjectCommand({
-        Bucket: MINIO_BUCKET_QUARANTINE,
-        Key: image.minioPath,
-      })
-    );
+    const token = await getBackendToken(session);
+
+    // Pedirle al backend de Python que elimine físicamente la imagen de MinIO
+    const res = await fetch(`${BACKEND_URL}/api/v1/quarantine/reject`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ minio_path: image.minioPath }),
+    });
+
+    if (!res.ok) {
+      throw new Error("El backend falló al eliminar la imagen en MinIO");
+    }
 
     // Eliminar el registro completamente de la base de datos
     await prisma.image.delete({
