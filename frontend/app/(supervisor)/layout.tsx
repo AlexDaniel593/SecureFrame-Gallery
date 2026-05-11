@@ -26,8 +26,10 @@ export default async function SupervisorLayout({
     <div className="min-h-screen flex">
       <aside className="w-64 bg-gray-50 dark:bg-gray-800 border-r p-4">
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-orange-600">Supervisor</h2>
-          <p className="text-sm text-muted-foreground">Panel de Control</p>
+          <Link href="/supervisor" className="block hover:opacity-80 transition-opacity">
+            <h2 className="text-xl font-bold text-orange-600">Supervisor</h2>
+            <p className="text-sm text-muted-foreground hover:underline">Panel de Control</p>
+          </Link>
         </div>
         <nav className="space-y-2">
           <Link href="/supervisor/pending-albums">
