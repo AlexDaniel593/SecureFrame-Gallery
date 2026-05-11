@@ -42,6 +42,15 @@ export function QuarantineImageCard({ image }: QuarantineImageCardProps) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const metricTooltips: Record<string, string> = {
+    eof_score: "Proporcion de bytes extra al final del archivo. Rango 0-1.",
+    lsb_score: "Irregularidad en los bits menos significativos (LSB). Rango 0-1.",
+    timestamp: "Fecha/hora del analisis en UTC, formato ISO 8601.",
+    confidence: "Confianza del veredicto basada en la distancia del puntaje a 0.5. Rango 0-1.",
+    dimensions: "Dimensiones de la imagen en pixeles (ancho x alto).",
+    pixel_count: "Total de pixeles de la imagen (ancho x alto).",
+  };
+
   const stego = image.stegoResult;
   const verdict = stego?.verdict ?? "UNKNOWN";
   const score = stego?.stego_score ?? 0;
@@ -167,7 +176,12 @@ export function QuarantineImageCard({ image }: QuarantineImageCardProps) {
             </p>
             {analysisDetails.map(([key, value]) => (
               <div key={key} className="flex justify-between gap-2">
-                <span className="text-muted-foreground truncate">{key}:</span>
+                <span
+                  className={`text-muted-foreground truncate ${metricTooltips[key] ? "cursor-help" : ""}`}
+                  title={metricTooltips[key] ?? ""}
+                >
+                  {key}:
+                </span>
                 <span className="font-medium truncate text-right">
                   {typeof value === "number"
                     ? value.toFixed ? value.toFixed(4) : String(value)

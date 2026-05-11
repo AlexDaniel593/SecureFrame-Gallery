@@ -21,6 +21,7 @@ from app.middleware.rate_limiter import (
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.routers.analysis import check_dependencies, router as analysis_router
 from app.routers.quarantine import router as quarantine_router
+from app.routers.gallery import router as gallery_router
 
 def _configure_logging() -> None:
     handler = logging.StreamHandler()
@@ -58,6 +59,7 @@ app.add_middleware(
 
 app.include_router(analysis_router, prefix="/api/v1")
 app.include_router(quarantine_router, prefix="/api/v1")
+app.include_router(gallery_router, prefix="/api/v1")
 
 @app.get("/")
 def root() -> Dict[str, str]:

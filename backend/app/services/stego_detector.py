@@ -117,7 +117,6 @@ def entropy_analysis(image: Image.Image) -> float:
 def analyze_image(file_path: str, timeout_seconds: int = 10) -> Dict[str, object]:
     with Image.open(file_path) as image:
         if image.width * image.height > MAX_SAMPLE_PIXELS:
-            # Reduce memory usage by downsizing before conversions.
             try:
                 image.draft("RGB", (MAX_SAMPLE_DIM, MAX_SAMPLE_DIM))
             except Exception:
@@ -134,28 +133,40 @@ def analyze_image(file_path: str, timeout_seconds: int = 10) -> Dict[str, object
     eof_score = _run_with_timeout(check_eof_anomaly, timeout_seconds, file_path)
 
     scores = [lsb_score, hist_score, eof_score, entropy_score]
-    stego_score = (lsb_score * 0.35) + (hist_score * 0.25) + (eof_score * 0.2) + (entropy_score * 0.2)
 
-    confidence = 1.0 - float(np.std(scores))
-    confidence = min(1.0, max(0.0, confidence))
+    stego_score = (
+        lsb_score * 0.20 +
+        hist_score * 0.15 +
+        eof_score * 0.15 +
+        entropy_score * 0.50
+    )
 
-    if stego_score < 0.6:
+    distance_from_boundary = abs(stego_score - 0.5)
+    confidence = min(1.0, distance_from_boundary * 2.0)
+
+    if entropy_score > 0.85 and (lsb_score > 0.1 or hist_score > 0.1 or eof_score > 0.1):
+        verdict = "SUSPICIOUS"
+        stego_score = max(stego_score, 0.65)
+    elif entropy_score > 0.90:
+        verdict = "SUSPICIOUS"
+        stego_score = max(stego_score, 0.70)
+    elif stego_score < 0.45:
         verdict = "CLEAN"
-    elif stego_score < 0.85:
+    elif stego_score < 0.65:
         verdict = "SUSPICIOUS"
     else:
         verdict = "MALICIOUS"
 
     return {
-        "stego_score": float(min(1.0, max(0.0, stego_score))),
-        "confidence": confidence,
+        "stego_score": round(float(min(1.0, max(0.0, stego_score))), 4),
+        "confidence": round(confidence, 4),
         "verdict": verdict,
         "details": {
-            "lsb_score": lsb_score,
-            "histogram_score": hist_score,
-            "eof_score": eof_score,
-            "entropy_score": entropy_score,
-            "confidence": confidence,
+            "lsb_score": round(lsb_score, 4),
+            "histogram_score": round(hist_score, 4),
+            "eof_score": round(eof_score, 4),
+            "entropy_score": round(entropy_score, 4),
+            "confidence": round(confidence, 4),
             "timestamp": datetime.utcnow().isoformat() + "Z",
         },
     }

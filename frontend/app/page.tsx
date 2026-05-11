@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getRoleBasedPath } from "@/lib/route-utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ImageIcon, LogIn, UserPlus, ShieldCheck } from "lucide-react";
 
 export default async function Home() {
   const session = await auth();
@@ -27,12 +28,15 @@ export default async function Home() {
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Visitar Galería</CardTitle>
+              <CardTitle className="flex items-center justify-center gap-2">
+                <ImageIcon className="h-5 w-5 text-primary" />
+                Visitar Galería
+              </CardTitle>
               <CardDescription>Explora álbumes públicos</CardDescription>
             </CardHeader>
             <CardContent>
               <Link
-                href="/albums"
+                href="/gallery"
                 className="inline-flex h-9 items-center justify-center rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-950 dark:hover:bg-gray-800 w-full"
               >
                 Ver Galería
@@ -42,7 +46,10 @@ export default async function Home() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Iniciar Sesión</CardTitle>
+              <CardTitle className="flex items-center justify-center gap-2">
+                <LogIn className="h-5 w-5 text-primary" />
+                Iniciar Sesión
+              </CardTitle>
               <CardDescription>Accede a tu cuenta</CardDescription>
             </CardHeader>
             <CardContent>
@@ -60,13 +67,15 @@ export default async function Home() {
           <p className="text-sm text-gray-500 dark:text-gray-400">
             ¿No tienes una cuenta?{" "}
             <Link href="/register" className="text-blue-600 hover:underline">
+              <UserPlus className="mr-1 inline h-4 w-4" />
               Regístrate aquí
             </Link>
           </p>
         </div>
 
         <div className="pt-8 border-t">
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center justify-center gap-2">
+            <ShieldCheck className="h-4 w-4" />
             Las imágenes son analizadas automaticamente para detectar contenido oculto
           </p>
         </div>
