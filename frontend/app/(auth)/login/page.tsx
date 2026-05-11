@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,6 +69,12 @@ export default function LoginPage() {
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Iniciando sesión..." : "Iniciar sesión"}
           </Button>
+          <Link
+            href="/"
+            className={`${buttonVariants({ variant: "outline" })} w-full border`}
+          >
+            Ir al inicio
+          </Link>
           <p className="text-sm text-center text-muted-foreground">
             ¿No tienes una cuenta?{" "}
             <Link href="/register" className="text-primary hover:underline">

@@ -65,21 +65,56 @@ export default async function QuarantinePage() {
       {/* Panel de ayuda */}
       <Card className="border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30">
         <CardContent className="py-3 px-4 text-sm text-blue-800 dark:text-blue-200 space-y-1">
-          <p className="font-semibold">Guía de revisión:</p>
-          <ul className="list-disc list-inside space-y-0.5 text-xs">
-            <li>
-              <strong>Aprobar (Ignorar alerta):</strong> La imagen se marca como
-              aprobada y quedará disponible en la galería pública.
-            </li>
-            <li>
-              <strong>Rechazar (Eliminar archivo):</strong> La imagen se marca
-              como rechazada y no se mostrará al público.
-            </li>
-            <li>
-              Haz clic en <strong>&quot;Ver Imagen&quot;</strong> para previsualizar
-              el archivo antes de decidir.
-            </li>
-          </ul>
+          <details className="group">
+            <summary className="font-semibold cursor-pointer select-none">
+              Guía de revisión
+            </summary>
+            <div className="mt-2 space-y-2 text-xs">
+              <ul className="list-disc list-inside space-y-0.5">
+                <li>
+                  <strong>Aprobar (Ignorar alerta):</strong> La imagen se marca
+                  como aprobada y quedará disponible en la galería pública.
+                </li>
+                <li>
+                  <strong>Rechazar (Eliminar archivo):</strong> La imagen se
+                  marca como rechazada y no se mostrará al público.
+                </li>
+                <li>
+                  Haz clic en <strong>&quot;Ver Imagen&quot;</strong> para
+                  previsualizar el archivo antes de decidir.
+                </li>
+              </ul>
+              <div className="space-y-1">
+                <p className="font-semibold">Significado y rangos:</p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  <li>
+                    <strong>eof_score:</strong> Proporción de bytes extra al
+                    final del archivo. Rango 0-1.
+                  </li>
+                  <li>
+                    <strong>lsb_score:</strong> Irregularidad en los bits menos
+                    significativos (LSB). Rango 0-1.
+                  </li>
+                  <li>
+                    <strong>timestamp:</strong> Fecha/hora del análisis en UTC,
+                    formato ISO 8601.
+                  </li>
+                  <li>
+                    <strong>confidence:</strong> Confianza del veredicto basada
+                    en la distancia del puntaje a 0.5. Rango 0-1.
+                  </li>
+                  <li>
+                    <strong>dimensions:</strong> Dimensiones de la imagen en
+                    pixeles (ancho x alto).
+                  </li>
+                  <li>
+                    <strong>pixel_count:</strong> Total de pixeles de la imagen
+                    (ancho x alto).
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </details>
         </CardContent>
       </Card>
 

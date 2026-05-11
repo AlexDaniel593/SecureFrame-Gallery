@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -159,6 +159,12 @@ export default function RegisterPage() {
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Creando cuenta..." : "Crear cuenta"}
           </Button>
+          <Link
+            href="/"
+            className={`${buttonVariants({ variant: "outline" })} w-full border`}
+          >
+            Ir al inicio
+          </Link>
           <p className="text-sm text-center text-muted-foreground">
             ¿Ya tienes una cuenta?{" "}
             <Link href="/login" className="text-primary hover:underline">
