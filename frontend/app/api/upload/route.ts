@@ -130,6 +130,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ ...result, saved: true, imageId: image.id });
     }
 
+    // Guardar imágenes SUSPICIOUS o MALICIOUS en cuarentena para revisión manual
+    if (result?.verdict === "SUSPICIOUS" || result?.verdict === "MALICIOUS") {
+      const minioPath = result?.minio_path ?? result?.minioPath;
+      if (minioPath && typeof minioPath === "string") {
+        const image = await prisma.image.create({
+          data: {
+            filename: result.filename ?? file.name,
+            minioPath,
+            status: "QUARANTINED",
+            stegoResult: result,
+            albumId,
+          },
+          select: { id: true },
+        });
+        return NextResponse.json({
+          ...result,
+          saved: true,
+          quarantined: true,
+          imageId: image.id,
+        });
+      }
+    }
+
     return NextResponse.json({ ...result, saved: false });
   } catch (error) {
     console.error("Error en upload proxy:", error);
